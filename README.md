@@ -3,7 +3,7 @@
 ### Basic functionalities
 * User can create notes
 * User can get notes from the XML server
-* User can fetch topics from Wikipedia and add them to the Notebook
+* User can fetch topics from Wikipedia and add them to the Notebook db
 
 ### Declaration of AI usage
 
