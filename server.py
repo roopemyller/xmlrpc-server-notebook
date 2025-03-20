@@ -29,36 +29,49 @@ class NoteBookServer:
 
     def saveXml(self):
         # Function to save the xml file
-        self.tree.write(DB, encoding="utf-8", xml_declaration=True)
+        try:
+            self.tree.write(DB, encoding="utf-8", xml_declaration=True)
+        except Exception as e:
+            print("Error saving XML file")
 
-    def addNote(self, topic, text):
+    def addNote(self, topic, note, text, url=None):
         '''
             function for adding notes to the mock db
-            takes in parameters self (the notebookserver), topic (topic name) and text (topic text)
+            takes in parameters self (the notebookserver), topic (topic name), text (topic text) and optional url (url to the wikipedia topic)
 
             Lookups the db for the topic, if not found creates a new one
             adds the text with a new timestamp to the topic
         '''
-        timestamp = datetime.datetime.now().strftime("%d.%m.%Y %H:%M")
+        try:
+            timestamp = datetime.datetime.now().strftime("%d.%m.%Y %H:%M")
 
-        topicElement = None
-        for t in self.root.findall("topic"):
-            if t.get("name") == topic:
-                topicElement = t
-                break
-        
-        if topicElement is None:
-            topicElement = ET.SubElement(self.root, "topic", name=topic)
-        
-        noteElement = ET.SubElement(topicElement, "note", name=topic)
-        textElement = ET.SubElement(noteElement, "text")
-        timestampElement = ET.SubElement(noteElement, "timestamp")
-        textElement.text = text
-        timestampElement.text = timestamp
+            topicElement = None
+            for t in self.root.findall("topic"):
+                if t.get("name") == topic.lower():
+                    topicElement = t
+                    break
+            
+            if topicElement is None:
+                topicElement = ET.SubElement(self.root, "topic", name=topic.lower())
+            
+            noteElement = ET.SubElement(topicElement, "note", name=note.lower())
+            textElement = ET.SubElement(noteElement, "text")
+            timestampElement = ET.SubElement(noteElement, "timestamp")
 
-        self.saveXml()
-        return f"Note '{text}' added to topic '{topic}'."
-    
+            if text is None or text == "":
+                text = "No text"
+
+            if url is not None:
+                text = url + "\n" + text
+
+            textElement.text = text
+            timestampElement.text = timestamp
+
+            self.saveXml()
+            return f"Note '{text}' added to topic '{topic}'."
+        except Exception as e:
+            return f"Error adding note: {e}"
+
     def getNotes(self, topic):
         '''
             function for getting notes from the mock db
@@ -66,16 +79,31 @@ class NoteBookServer:
 
             Finds all (if any) notes and prints them out to the user
         '''
-        for t in self.root.findall("topic"):
-            if t.get("name") == topic:
-                notes = []
-                for note in t.findall("note"):
-                    note_text = note.find("text").text.strip() if note.find("text") is not None else "No text"
-                    timestamp = note.find("timestamp").text.strip() if note.find("timestamp") is not None else "No timestamp"
-                    notes.append((timestamp, note_text))
-                return notes if notes else f"No notes found under topic '{topic}'."
-        return f"Topic '{topic}' not found." 
-    
+        try:
+            for t in self.root.findall("topic"):
+                if t.get("name") == topic.lower():
+                    notes = []
+                    for note in t.findall("note"):
+
+                        note_title = note.get("name")
+
+                        if note.find("text") is not None or note.find("text") == "":
+                            note_text = note.find("text").text.strip()
+                        else:
+                            note_text = "No text"
+                        
+                        if note.find("timestamp") is not None:
+                            timestamp = note.find("timestamp").text.strip()
+                        else:
+                            timestamp = "No timestamp"
+
+
+                        notes.append((timestamp,note_title, note_text))
+                    return notes if notes else f"No notes found under topic '{topic}'."
+            return f"Topic '{topic}' not found." 
+        except Exception as e:
+            return f"Error getting notes {e}"
+
     def fetchWikipedia(self, topic):
         '''
             function for fetching topics from wikipedia
@@ -86,31 +114,38 @@ class NoteBookServer:
             https://www.mediawiki.org/wiki/API:Opensearch
             https://www.mediawiki.org/wiki/Extension:TextExtracts
         '''
+        try:
+            url = "https://en.wikipedia.org/w/api.php"
+            params = {
+                "action": "query",
+                "format": "json",
+                "titles": topic,
+                "prop": "extracts",
+                "exintro": True,
+                "explaintext": True
+            }
 
-        url = "https://en.wikipedia.org/w/api.php"
-        params = {
-            "action": "query",
-            "format": "json",
-            "titles": topic,
-            "prop": "extracts",
-            "exintro": True,
-            "explaintext": True
-        }
+            response = requests.get(url, params=params)
+            if(response.status_code == 200):
+                data  = response.json()
 
-        response = requests.get(url, params=params)
-        if(response.status_code == 200):
-            data  = response.json()
-            pages = data["query"]["pages"]
-            page = next(iter(pages.values()))
+                pages = data["query"]["pages"]
+                page = next(iter(pages.values()))
 
-            pageTitle = page["title"]
-            pageText = page["extract"]
+                pageTitle = page["title"]
+                pageText = page["extract"]
+                pageId = page["pageid"]
+                pageUrl = f"https://en.wikipedia.org/?curid={pageId}"
 
-            self.addNote(pageTitle, pageText)
+                self.addNote(topic, pageTitle, pageText, pageUrl)
+                if pageText is None:
+                    pageText = "No text"
 
-            return f"Found page {pageTitle} with text:\n{pageText}\nAdding text to database!"
+                return f"Found page {pageTitle} with url: {pageUrl}\nText:{pageText}\n\nAdded note to database!"
 
-        return "No Wikipedia article found"
+            return "No Wikipedia article found"
+        except Exception as e:
+            return f"Error fetching Wikipedia: {e}"
 
 server = SimpleXMLRPCServer(("localhost", 8000), requestHandler=SimpleXMLRPCRequestHandler)
 notebookServer = NoteBookServer()

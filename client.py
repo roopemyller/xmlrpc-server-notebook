@@ -16,15 +16,19 @@ def main ():
             case "1":
                 print("Add note!")
                 topic = input("Enter topic: ")
+                note = input("Enter note title: ")
                 text = input("Enter note text: ")
-                print(server.addNote(topic, text))
+                if topic == "" or note == "" or text == "":
+                    print("All fields are required!")
+                else:
+                    print(server.addNote(topic, note, text))
             case "2":
                 print("Get notes!")
                 topic = input("Enter topic: ")
                 notes = server.getNotes(topic)
                 if isinstance(notes, list):
-                    for timestamp, text in notes:
-                        print(f"{timestamp}: {text}")
+                    for timestamp, note, text in notes:
+                        print(f"{timestamp} : {note} : {text}")
                 else:
                     print(notes)
             case "3":
