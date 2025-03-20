@@ -1,3 +1,6 @@
+
+# Distributed Systems - Assignment 2 - Roope Myller
+
 from xmlrpc.server import SimpleXMLRPCServer
 from xmlrpc.server import SimpleXMLRPCRequestHandler
 import xml.etree.ElementTree as ET
@@ -22,17 +25,23 @@ class NoteBookServer:
         try:
             self.tree = ET.parse(DB)
             self.root = self.tree.getroot()
+            print(f"Loaded XML file {DB}")
         except (ET.ParseError, FileNotFoundError):
-            self.root = ET.Element("data")
-            self.tree = ET.ElementTree(self.root)
-            self.saveXml()
+            try:
+                self.root = ET.Element("data")
+                self.tree = ET.ElementTree(self.root)
+                self.saveXml()
+                print(f"Created new XML file {DB}")
+            except Exception as e:
+                print(f"Error creating new XML file: {e}")
 
     def saveXml(self):
         # Function to save the xml file
         try:
             self.tree.write(DB, encoding="utf-8", xml_declaration=True)
+            print(f"Saved XML file {DB}")
         except Exception as e:
-            print("Error saving XML file")
+            print(f"Error saving XML file: {e}")
 
     def addNote(self, topic, note, text, url=None):
         '''
@@ -68,8 +77,10 @@ class NoteBookServer:
             timestampElement.text = timestamp
 
             self.saveXml()
+            print("Added note to topic")
             return f"Note '{text}' added to topic '{topic}'."
         except Exception as e:
+            print("Error adding note")
             return f"Error adding note: {e}"
 
     def getNotes(self, topic):
@@ -77,16 +88,14 @@ class NoteBookServer:
             function for getting notes from the mock db
             takes in parameters self and topic (topic name)
 
-            Finds all (if any) notes and prints them out to the user
+            Finds all (if any) notes and returns them to client (printed out in client side)
         '''
         try:
             for t in self.root.findall("topic"):
                 if t.get("name") == topic.lower():
                     notes = []
                     for note in t.findall("note"):
-
                         note_title = note.get("name")
-
                         if note.find("text") is not None or note.find("text") == "":
                             note_text = note.find("text").text.strip()
                         else:
@@ -96,12 +105,13 @@ class NoteBookServer:
                             timestamp = note.find("timestamp").text.strip()
                         else:
                             timestamp = "No timestamp"
-
-
                         notes.append((timestamp,note_title, note_text))
+                    print(f"Found notes under topic '{topic}'")
                     return notes if notes else f"No notes found under topic '{topic}'."
+            print("Topic not found")
             return f"Topic '{topic}' not found." 
         except Exception as e:
+            print("Error getting notes")
             return f"Error getting notes {e}"
 
     def fetchWikipedia(self, topic):
@@ -141,18 +151,24 @@ class NoteBookServer:
                 if pageText is None:
                     pageText = "No text"
 
+                print("Found Wikipedia article")
                 return f"Found page {pageTitle} with url: {pageUrl}\nText:{pageText}\n\nAdded note to database!"
-
+            print("No Wikipedia article found")
             return "No Wikipedia article found"
         except Exception as e:
+            print("Error fetching Wikipedia")
             return f"Error fetching Wikipedia: {e}"
 
-server = SimpleXMLRPCServer(("localhost", 8000), requestHandler=SimpleXMLRPCRequestHandler)
-notebookServer = NoteBookServer()
 
-server.register_function(notebookServer.addNote, "addNote")
-server.register_function(notebookServer.getNotes, "getNotes")
-server.register_function(notebookServer.fetchWikipedia, "fetchWikipedia")
+def main ():
+    server = SimpleXMLRPCServer(("localhost", 8000), requestHandler=SimpleXMLRPCRequestHandler)
+    notebookServer = NoteBookServer()
 
-print("Server is running on port 8000")
-server.serve_forever()
+    server.register_function(notebookServer.addNote, "addNote")
+    server.register_function(notebookServer.getNotes, "getNotes")
+    server.register_function(notebookServer.fetchWikipedia, "fetchWikipedia")
+
+    print("Server is running on port 8000")
+    server.serve_forever()
+
+main()

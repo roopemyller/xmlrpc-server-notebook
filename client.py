@@ -1,3 +1,6 @@
+
+# Distributed Systems - Assignment 2 - Roope Myller
+
 import xmlrpc.client
 
 server = xmlrpc.client.ServerProxy("http://localhost:8000/")
@@ -21,11 +24,11 @@ def main ():
                 if topic == "" or note == "" or text == "":
                     print("All fields are required!")
                 else:
-                    print(server.addNote(topic, note, text))
+                    print(server.addNote(topic.lower(), note, text))
             case "2":
                 print("Get notes!")
                 topic = input("Enter topic: ")
-                notes = server.getNotes(topic)
+                notes = server.getNotes(topic.lower())
                 if isinstance(notes, list):
                     for timestamp, note, text in notes:
                         print(f"{timestamp} : {note} : {text}")
@@ -34,7 +37,10 @@ def main ():
             case "3":
                 print("Search topic from Wikipedia!")
                 topic = input("Enter topic: ")
-                print(server.fetchWikipedia(topic))
+                if topic == "":
+                    print("Topic is required!")
+                else:
+                    print(server.fetchWikipedia(topic))
             case "0":
                 print("Exit program!")
                 break
